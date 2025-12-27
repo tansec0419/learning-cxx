@@ -17,3 +17,4 @@ int main(int argc, char **argv) {
     ASSERT(func(1) == 9, "static variable value incorrect");
     return 0;
 }
+//重新提交exercise4
