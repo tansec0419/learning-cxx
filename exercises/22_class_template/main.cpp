@@ -10,6 +10,10 @@ struct Tensor4D {
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
         // TODO: 填入正确的 shape 并计算 size
+        for(int i=0;i<4;i++){
+            shape[i]=shape_[i];
+            size*=shape[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -28,6 +32,44 @@ struct Tensor4D {
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
         // TODO: 实现单向广播的加法
+        unsigned int size = 1;
+        for (int i = 0; i < 4; ++i) size *= shape[i];
+
+        for (unsigned int i = 0; i < size; ++i) {
+            
+            // --- A. 把一维索引 i 还原成四维坐标 (n, c, h, w) ---
+            // 这种计算方法叫“取模除法法”，就像把秒转换成“小时:分钟:秒”
+            unsigned int idx = i;
+            unsigned int coords[4]; // 存放 this 的当前坐标
+            
+            // 我们从最后一个维度（最内层）开始算
+            for (int dim = 3; dim >= 0; --dim) {
+                coords[dim] = idx % shape[dim]; // 取余数得到当前维度的坐标
+                idx /= shape[dim];              // 除法进入下一层
+            }
+
+            // --- B. 找到 others 对应的坐标 ---
+            unsigned int others_idx = 0;
+            // 这是一个累积乘数，用来把坐标变回一维索引
+            unsigned int stride = 1; 
+
+            // 我们从最后一个维度往回算，直接算出 others 的一维索引 j
+            for (int dim = 3; dim >= 0; --dim) {
+                // 核心广播逻辑：
+                // 如果 others 在这个维度长度是 1，那坐标就是 0；
+                // 否则，坐标就必须和 this 的坐标（coords[dim]）一样。
+                unsigned int coord_in_others = (others.shape[dim] == 1) ? 0 : coords[dim];
+                
+                // 累加索引： 坐标 * 步长
+                others_idx += coord_in_others * stride;
+                
+                // 更新步长
+                stride *= others.shape[dim];
+            }
+
+            // --- C. 加法 ---
+            data[i] += others.data[others_idx];
+        }
         return *this;
     }
 };
